@@ -1,0 +1,13 @@
+.vs/
+.vscode/
+bin/
+obj/
+
+*.user
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.sln
+*.slnx
+**/Makefile
+*.make
