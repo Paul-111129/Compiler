@@ -1,9 +1,0 @@
-* text eol=lf
-
-*.exe   binary
-*.dll   binary
-*.o     binary
-*.obj   binary
-*.a     binary
-*.lib   binary
-*.pdb   binary

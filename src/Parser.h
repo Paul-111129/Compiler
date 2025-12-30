@@ -3,121 +3,119 @@
 #include "pch.h"
 #include "Tokenizer.h"
 
-namespace Compiler {
+namespace Glassy {
 
-    // program     -> statement*
-    // statement   -> identifier "=" expression ";"
-    // expression  -> term (("+" | "-") term)*
-    // term        -> factor (("*" | "/") factor)*
-    // factor      -> NUMBER | IDENTIFIER | "(" expression ")"
-    // ex:  "var = (3 + 8.5) * .2;"
+/*
+    TODO:
+    - parenthesis precendence
+    - unary operators
+    - variable expressions
+*/
 
-    struct ASTNode {
-        virtual ~ASTNode() = default;
-        virtual void print(std::ostream& out, int indent = 0) const = 0;
-    };
+/*
+    Grammar:
 
-    struct Expression : public ASTNode { };
+    program    -> statement*
+    statement  -> ((identifier "=" expression) | (exit NUMBER)) ";"
+    expression -> term (("+" | "-") term)*
+    term       -> factor (("*" | "/") factor)*
+    factor     -> NUMBER | IDENTIFIER | "(" expression ")"
+*/
 
-    struct NumberExpr : public Expression {
-        explicit NumberExpr(double val) : value(val) { }
+struct ASTNode {
+    virtual ~ASTNode() = default;
+    virtual void print(std::ostream &out) const = 0;
 
-        double value;
-    };
+    friend std::ostream &operator<<(std::ostream &os, const ASTNode &node) {
+        node.print(os);
+        return os;
+    }
+};
 
-    struct BinaryExpr : public Expression {
-        BinaryExpr(char op, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right)
-          : op(op),
-            left(std::move(left)),
-            right(std::move(right)) { }
+struct Expression : public ASTNode {};
 
-        char op;
-        std::unique_ptr<Expression> left;
-        std::unique_ptr<Expression> right;
-    };
+struct NumberExpr : public Expression {
+    explicit NumberExpr(double val) : value(val) {}
 
-    struct Statement : public ASTNode { };
+    void print(std::ostream &out) const override { out << value; }
 
-    struct AssignStmt : public Statement {
-        AssignStmt(const std::string& name, std::unique_ptr<Expression> value)
-          : name(name),
-            value(std::move(value)) { }
+    double value;
+};
 
-        void print(std::ostream& out, int indent = 0) const override {
-            out << std::string(indent, ' ') << "AssignStmt: " << name << "\n";
+struct BinaryExpr : public Expression {
+    BinaryExpr(char op, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right)
+        : op(op),
+          left(std::move(left)),
+          right(std::move(right)) {}
+
+    void print(std::ostream &out) const override { out << *left << ' ' << op << ' ' << *right; }
+
+    char op;
+    std::unique_ptr<Expression> left;
+    std::unique_ptr<Expression> right;
+};
+
+struct Statement : public ASTNode {
+    virtual void GenerateCode(std::string &out) const = 0;
+};
+
+struct AssignStmt : public Statement {
+    AssignStmt(const std::string &name, std::unique_ptr<Expression> value)
+        : name(name),
+          value(std::move(value)) {}
+
+    void GenerateCode(std::string &out) const override { out += "; assign " + name + "\n"; }
+
+    void print(std::ostream &out) const override { out << name << " = " << *value << ";"; }
+
+    std::string name;
+    std::unique_ptr<Expression> value;
+};
+
+struct ExitStmt : public Statement {
+    ExitStmt(uint8_t value) : exitValue(value) {}
+
+    void GenerateCode(std::string &out) const override {
+        out += "mov rax, 60\nmov rdi, " + std::to_string(exitValue) + "\nsyscall\n";
+    }
+
+    void print(std::ostream &out) const override {
+        out << "exit " << static_cast<unsigned int>(exitValue) << ";";
+    }
+
+    uint8_t exitValue;
+};
+
+struct Program : public ASTNode {
+    void print(std::ostream &out) const override {
+        out << "Program:\n";
+        for (const auto &stmt : statements) {
+            out << *stmt << '\n';
         }
+    }
 
-        std::string name;
-        std::unique_ptr<Expression> value;
-    };
+    std::vector<std::unique_ptr<Statement>> statements;
+};
 
-    struct Program : public ASTNode {
-        void print(std::ostream& out, int indent = 0) const override {
-            out << "Program:\n";
-            for (const auto& stmt : statements) {
-                stmt->print(out, indent + 2);
-            }
-        }
+class Parser {
+  public:
+    explicit Parser(const std::vector<Token> &tokens);
 
-        std::vector<std::unique_ptr<Statement>> statements;
-    };
+    std::unique_ptr<Program> ParseProgram();
 
-    class Parser {
-      public:
-        explicit Parser(const std::vector<Token>& tokens) : m_Tokens(tokens) { }
+  private:
+    std::unique_ptr<Expression> parseFactor();
+    std::unique_ptr<Expression> parseTerm();
+    std::unique_ptr<Expression> parseExpression();
+    std::unique_ptr<Statement> parseStatement();
 
-        std::unique_ptr<Expression> ParseExpression() { return nullptr; }
+    [[nodiscard]] std::optional<Token> peek(const int offset = 0) const;
+    Token consume();
+    bool match(TokenType type);
+    Token expect(TokenType type, const char *msg);
 
-        std::unique_ptr<Statement> ParseStatement() { return nullptr; }
+    const std::vector<Token> m_Tokens;
+    size_t m_Index = 0;
+};
 
-        std::unique_ptr<Program> ParseProgram() {
-            std::unique_ptr<Program> program = std::make_unique<Program>();
-
-            while (peek().has_value()) {
-                Token name = expect(TokenType::IDENTIFIER, "Expected identifier");
-                expect(TokenType::OPERATOR, "Expected '='");
-                expect(TokenType::SEPARATOR, "Expected ';'");
-
-                program->statements.push_back(std::make_unique<AssignStmt>(name.lexeme, nullptr));
-            }
-
-            return program;
-        }
-
-      private:
-        [[nodiscard]] std::optional<Token> peek(const int offset = 0) const {
-            if (m_Index + offset >= m_Tokens.size()) {
-                return std::nullopt;
-            }
-            return m_Tokens[m_Index + offset];
-        }
-
-        Token consume() {
-            if (m_Index >= m_Tokens.size()) {
-                Error("Unexpected end of input");
-            }
-            return m_Tokens[m_Index++];
-        }
-
-        bool match(TokenType type) {
-            auto tok = peek();
-            if (!tok || tok->type != type)
-                return false;
-
-            consume();
-            return true;
-        }
-
-        Token expect(TokenType type, const char* msg) {
-            auto tok = peek();
-            if (!tok || tok->type != type) {
-                Error(msg);
-            }
-            return consume();
-        }
-
-        const std::vector<Token> m_Tokens;
-        size_t m_Index = 0;
-    };
-
-}  // namespace Compiler
+} // namespace Glassy

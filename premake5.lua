@@ -1,4 +1,4 @@
-workspace "Compiler"
+workspace "Glassy"
     architecture "x64"
     location "."
 
@@ -8,7 +8,7 @@ workspace "Compiler"
         "Release"
     }
 
-project "Compiler"
+project "Glassy"
     language "C++"
     kind "ConsoleApp"
 
