@@ -1,4 +1,5 @@
 #include "Tokenizer.h"
+#include "Error.h"
 
 #include <cctype>
 #include <charconv>
@@ -103,18 +104,6 @@ std::vector<Token> Tokenizer::Tokenize() const {
     }
 
     return tokens;
-}
-
-void Error(SourceLocation loc, const std::string& msg) {
-    std::cerr << std::format("{} [Ln {}, Col {}]\n", msg, loc.line, loc.column);
-    std::cin.get();
-    std::exit(1);
-}
-
-void Error(const std::string& msg) {
-    std::cerr << msg << "\n";
-    std::cin.get();
-    std::exit(1);
 }
 
 } // namespace Glassy

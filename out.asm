@@ -1,16 +1,13 @@
 global _start
 section .text
 _start:
-push rbp
-mov rbp, rsp
 mov rax, 2
 push rax
-mov rax, QWORD [rbp + 0]
+mov rax, 3
 push rax
-mov rax, 1
-pop rbx
-sub rbx, rax
-mov rax, rbx
+mov rax, 4
+push rax
+push QWORD [rsp + 8]
 mov rax, 60
 pop rdi
 syscall

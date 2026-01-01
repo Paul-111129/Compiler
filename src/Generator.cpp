@@ -1,9 +1,10 @@
 #include "Generator.h"
+#include "Error.h"
 #include <iostream>
 
 namespace Glassy {
 
-Generator::Generator(std::unique_ptr<Program> prog) : m_Program(std::move(prog)) {}
+Generator::Generator(Program* prog) : m_Program(prog) {}
 
 std::string Generator::GenerateAsm() {
     m_StackSize = 0;
@@ -20,7 +21,7 @@ void Generator::visit(const IdentifierExpr& node) {
         Error("Undeclared variable '" + node.name + "'");
     }
     const auto& var = m_Variables[node.name];
-    m_Output += "mov rax, QWORD [rsp + " + std::to_string((m_StackSize - var.stackLocation - 1) * 8) + "]\n";
+    push("QWORD [rsp + " + std::to_string((m_StackSize - var.stackLocation - 1) * 8) + "]");
 }
 
 void Generator::visit(const BinaryExpr& node) {
@@ -66,7 +67,7 @@ void Generator::visit(const Program& prog) {
     for (const auto& stmt : prog.statements) {
         stmt->accept(*this);
     }
-    
+
     m_Output += "mov rax, 60\nmov rdi, 0\nsyscall\n";
 }
 

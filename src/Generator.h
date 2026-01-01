@@ -7,7 +7,7 @@ namespace Glassy {
 
 struct Generator : public AstVisitor {
   public:
-    explicit Generator(std::unique_ptr<Program> prog);
+    explicit Generator(Program* prog);
     std::string GenerateAsm();
 
   private:
@@ -34,7 +34,7 @@ struct Generator : public AstVisitor {
         m_StackSize--;
     }
 
-    const std::unique_ptr<Program> m_Program;
+    const Program* m_Program;
     std::string m_Output;
     size_t m_StackSize = 0;
     std::unordered_map<Identifier, Variable> m_Variables;

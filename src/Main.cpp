@@ -3,7 +3,6 @@
 #include "Tokenizer.h"
 
 #include <filesystem>
-#include <format>
 #include <fstream>
 #include <iostream>
 
@@ -35,7 +34,7 @@ int main() {
     auto program = parser.ParseProgram();
     program->print(std::cout);
 
-    Glassy::Generator generator(std::move(program));
+    Glassy::Generator generator(program);
     outputFile << generator.GenerateAsm();
 
     std::cin.get();

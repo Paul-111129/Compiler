@@ -1,15 +1,12 @@
 workspace "Glassy"
     architecture "x64"
     location "."
-    toolset "clang"
 
     configurations
     {
         "Debug",
         "Release"
     }
-
-    buildoptions { "-fcolor-diagnostics" }
 
 project "Glassy"
     language "C++"

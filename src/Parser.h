@@ -1,8 +1,11 @@
 #pragma once
 
+#include "Arena.h"
+#include "Error.h"
 #include "Tokenizer.h"
-#include <memory>
+
 #include <optional>
+#include <ostream>
 
 namespace Glassy {
 
@@ -51,7 +54,7 @@ struct Expression : ASTNode {
     virtual ~Expression() = default;
 };
 
-struct LiteralExpr : Expression { // 3
+struct LiteralExpr : Expression {
     explicit LiteralExpr(Literal val) : value(val) {}
 
     void print(std::ostream& out) const override { out << value; }
@@ -60,7 +63,7 @@ struct LiteralExpr : Expression { // 3
     Literal value;
 };
 
-struct IdentifierExpr : Expression { // a
+struct IdentifierExpr : Expression {
     explicit IdentifierExpr(std::string_view id) : name(id) {}
 
     void print(std::ostream& out) const override { out << name; }
@@ -69,9 +72,8 @@ struct IdentifierExpr : Expression { // a
     Identifier name;
 };
 
-struct BinaryExpr : Expression { // 3 + b
-    BinaryExpr(Operator op, std::unique_ptr<Expression> lhs, std::unique_ptr<Expression> rhs)
-        : op(op), left(std::move(lhs)), right(std::move(rhs)) {}
+struct BinaryExpr : Expression {
+    BinaryExpr(Operator op, Expression* lhs, Expression* rhs) : op(op), left(lhs), right(rhs) {}
 
     void print(std::ostream& out) const override {
         out << *left << ' ' << OperatorToStr[size_t(op)][0] << ' ' << *right;
@@ -79,43 +81,41 @@ struct BinaryExpr : Expression { // 3 + b
     void accept(AstVisitor& visitor) const override { visitor.visit(*this); }
 
     Operator op;
-    std::unique_ptr<Expression> left;
-    std::unique_ptr<Expression> right;
+    Expression* left;
+    Expression* right;
 };
 
 struct Statement : ASTNode {
     virtual ~Statement() = default;
 };
 
-struct AssignStmt : Statement { // a = 3 + b
-    AssignStmt(std::string_view name, std::unique_ptr<Expression> expr)
-        : identifier(name), expr(std::move(expr)) {}
+struct AssignStmt : Statement {
+    AssignStmt(std::string_view name, Expression* expr) : identifier(name), expr(expr) {}
 
     void print(std::ostream& out) const override { out << identifier << " = " << *expr << ";"; }
     void accept(AstVisitor& visitor) const override { visitor.visit(*this); }
 
     Identifier identifier;
-    std::unique_ptr<Expression> expr;
+    Expression* expr;
 };
 
-struct DeclarStmt : Statement { // let a = 3 + b
-    DeclarStmt(std::string_view name, std::unique_ptr<Expression> expr)
-        : identifier(name), expr(std::move(expr)) {}
+struct DeclarStmt : Statement {
+    DeclarStmt(std::string_view name, Expression* expr) : identifier(name), expr(expr) {}
 
     void print(std::ostream& out) const override { out << "let " << identifier << " = " << *expr << ";"; }
     void accept(AstVisitor& visitor) const override { visitor.visit(*this); }
 
     Identifier identifier;
-    std::unique_ptr<Expression> expr;
+    Expression* expr;
 };
 
-struct ExitStmt : Statement { // exit 3;
-    ExitStmt(std::unique_ptr<Expression> e) : expr(std::move(e)) {}
+struct ExitStmt : Statement {
+    ExitStmt(Expression* e) : expr(e) {}
 
     void print(std::ostream& out) const override { out << "exit " << *expr << ";"; }
     void accept(AstVisitor& visitor) const override { visitor.visit(*this); }
 
-    std::unique_ptr<Expression> expr;
+    Expression* expr;
 };
 
 struct Program : ASTNode {
@@ -127,47 +127,65 @@ struct Program : ASTNode {
     }
     void accept(AstVisitor& visitor) const override { visitor.visit(*this); }
 
-    std::vector<std::unique_ptr<Statement>> statements;
+    std::vector<Statement*> statements;
 };
 
 class Parser {
   public:
     explicit Parser(const std::vector<Token>& tokens);
-
-    std::unique_ptr<Program> ParseProgram();
+    Program* ParseProgram();
 
   private:
-    std::unique_ptr<Expression> parseFactor();
-    std::unique_ptr<Expression> parseTerm();
-    std::unique_ptr<Expression> parseExpression();
-    std::unique_ptr<Statement> parseStatement();
+    Expression* parseFactor();
+    Expression* parseTerm();
+    Expression* parseExpression();
+    Statement* parseStatement();
 
-    [[nodiscard]] std::optional<Token> peek(const int offset = 0) const;
-    Token consume();
+    std::optional<Token> peek(const int offset = 0) const {
+        if (m_Index + offset >= m_Tokens.size()) {
+            return std::nullopt;
+        }
+        return m_Tokens[m_Index + offset];
+    }
+
+    Token consume() {
+        if (m_Index >= m_Tokens.size()) {
+            Error(m_Tokens[m_Index - 1].location, "Unexpected end of file");
+        }
+        return m_Tokens[m_Index++];
+    }
 
     template <typename T, typename... Ts>
-    std::optional<T> match(T type, Ts... rest);
+    std::optional<T> match(T first, Ts... rest) {
+        auto tok = peek();
+        if (!tok) {
+            return std::nullopt;
+        }
 
-    Token expect(TokenType type, const char* msg);
+        if (auto val = tok->GetValue<T>()) {
+            if (((*val == first) || ... || (*val == rest))) {
+                consume();
+                return *val;
+            }
+        }
+        return std::nullopt;
+    }
+
+    Token expect(TokenType type, const char* msg) {
+        auto tok = peek();
+        if (!tok) {
+            Error(m_Tokens.back().location, msg);
+        }
+        if (tok->type != type) {
+            Error(tok->location, msg);
+        }
+        return consume();
+    }
+
+    ArenaAllocator m_Allocator;
 
     const std::vector<Token> m_Tokens;
     size_t m_Index = 0;
 };
-
-template <typename T, typename... Ts>
-inline std::optional<T> Parser::match(T first, Ts... rest) {
-    auto tok = peek();
-    if (!tok) {
-        return std::nullopt;
-    }
-
-    if (auto val = tok->GetValue<T>()) {
-        if (((*val == first) || ... || (*val == rest))) {
-            consume();
-            return *val;
-        }
-    }
-    return std::nullopt;
-}
 
 } // namespace Glassy
