@@ -81,7 +81,7 @@ class Parser {
 
   private:
     Term* parseTerm();
-    Expression* parseExpression();
+    Expression* parseExpression(int minPrecedence = 0);
     Statement* parseStatement();
 
     const Token& peek(int offset = 0) const {
@@ -99,12 +99,24 @@ class Parser {
         return nullptr;
     }
 
-    Token expect(TokenType type, const char* msg) {
+    Token expect(TokenType type) {
         const Token& tok = peek();
         if (tok.type != type) {
-            Error(tok.location, msg);
+            Error(tok.location, std::format("Expected '{}'", ToStr(type)));
         }
         return consume();
+    }
+
+    std::optional<int> GetPrecedence(TokenType type) {
+        switch (type) {
+            case PLUS:
+            case MINUS: return 0;
+
+            case STAR:
+            case F_SLASH: return 1;
+
+            default: return {};
+        }
     }
 
     ArenaAllocator m_Allocator;

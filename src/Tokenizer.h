@@ -22,7 +22,7 @@ enum TokenType {
     PLUS,
     MINUS,
     STAR,
-    SLASH,
+    F_SLASH,
     PERCENT,
     CARET,
     EQUAL,
@@ -37,10 +37,10 @@ struct SourceLocation {
     uint16_t column = 1;
 };
 
-constexpr const char* TokenToStr[TOKEN_TYPE_NB] = { "identifier", "literal", "exit", "let", "(", ")", "[",
+constexpr std::string_view TokenToStr[TOKEN_TYPE_NB] = { "identifier", "literal", "exit", "let", "(", ")", "[",
     "]", "{", "}", ";", "+", "-", "*", "/", "%", "^", "=", "eof" };
 
-constexpr const char* ToStr(TokenType type) {
+constexpr std::string_view ToStr(TokenType type) {
     return TokenToStr[type];
 }
 
@@ -48,7 +48,7 @@ struct Token {
     Token(TokenType type, SourceLocation loc) : type(type), location(loc) {}
     Token(TokenType type, SourceLocation loc, std::string_view v) : type(type), location(loc), value(v) {}
 
-    constexpr const char* ToStr() const { return TokenToStr[type]; }
+    constexpr std::string_view ToStr() const { return TokenToStr[type]; }
 
     TokenType type;
     SourceLocation location;

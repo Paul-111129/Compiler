@@ -27,10 +27,10 @@ std::vector<Token> Tokenizer::Tokenize() const {
 
         SourceLocation startLoc = loc;
 
-        if (std::isalpha(static_cast<unsigned char>(c))) {
+        if (std::isalpha(static_cast<unsigned char>(c)) || c == '_') {
             const size_t start = i;
 
-            while (i < size && std::isalnum(static_cast<unsigned char>(m_Src[i]))) {
+            while (i < size && (std::isalnum(static_cast<unsigned char>(m_Src[i])) || m_Src[i] == '_')) {
                 ++i;
                 ++loc.column;
             }
@@ -63,7 +63,7 @@ std::vector<Token> Tokenizer::Tokenize() const {
             case '+': tokens.emplace_back(PLUS, startLoc); break;
             case '-': tokens.emplace_back(MINUS, startLoc); break;
             case '*': tokens.emplace_back(STAR, startLoc); break;
-            case '/': tokens.emplace_back(SLASH, startLoc); break;
+            case '/': tokens.emplace_back(F_SLASH, startLoc); break;
             case '%': tokens.emplace_back(PERCENT, startLoc); break;
             case '^': tokens.emplace_back(CARET, startLoc); break;
             case '=': tokens.emplace_back(EQUAL, startLoc); break;
@@ -94,13 +94,11 @@ std::vector<Token> Tokenizer::Tokenize() const {
 
 void Error(SourceLocation loc, const std::string& msg) {
     std::cerr << std::format("{} [Ln {}, Col {}]\n", msg, loc.line, loc.column);
-    std::cin.get();
     std::exit(1);
 }
 
 void Error(const std::string& msg) {
     std::cerr << msg << "\n";
-    std::cin.get();
     std::exit(1);
 }
 

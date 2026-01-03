@@ -3,45 +3,46 @@
 #include "Parser.h"
 #include "Tokenizer.h"
 
-int main() {
-    const char* inputFileName = "src.glassy";
-    const char* outputFileName = "out.asm";
-
-    const std::filesystem::path path = std::filesystem::current_path();
-
-    std::ifstream inputFile(path / inputFileName, std::ios::in | std::ios::binary);
-    if (!inputFile) {
-        std::cerr << "Failed to open file: " << inputFileName << "\n";
-        return 1;
+int main(int argc, char** argv) {
+    if (argc != 2) {
+        Glassy::Error("Usage: <program> <source_file>.glassy");
     }
-    std::string input =
-        std::string(std::istreambuf_iterator<char>(inputFile), std::istreambuf_iterator<char>());
-    input += '\n';
+
+    std::filesystem::path inputFilePath = argv[1];
+
+    if (inputFilePath.extension() != ".glassy") {
+        Glassy::Error(inputFilePath.string() + " is not a Glassy source file");
+    }
+    if (!inputFilePath.has_extension()) {
+        inputFilePath.replace_extension(".glassy");
+    }
+
+    std::filesystem::path outputFilePath = inputFilePath;
+    outputFilePath.replace_extension(".asm");
+
+    std::ifstream inputFile(inputFilePath, std::ios::in | std::ios::binary);
+    if (!inputFile) {
+        Glassy::Error("Failed to open file: " + inputFilePath.string());
+    }
+
+    std::string sourceCode((std::istreambuf_iterator<char>(inputFile)), std::istreambuf_iterator<char>());
+    sourceCode += '\n'; // ensure last line ends with newline
     inputFile.close();
 
-    Glassy::Tokenizer tokenizer(input);
-    const auto tokens = tokenizer.Tokenize();
-
-    for (int i = 0; i < tokens.size(); ++i) {
-        const auto& token = tokens[i];
-
-        std::cout << std::format("{:>3}: {:<10} {:<10} [Ln {:>3}, Col {:>3}]\n", i + 1, token.ToStr(),
-            token.value.value_or(""), token.location.line, token.location.column);
-    }
-
+    // tokenize, parse, and generate assembly
+    Glassy::Tokenizer tokenizer(sourceCode);
     Glassy::Parser parser(tokenizer.Tokenize());
+    Glassy::Generator generator(parser.ParseProgram());
 
-    auto program = parser.ParseProgram();
-
-    Glassy::Generator generator(program);
-
-    std::ofstream outputFile(path / outputFileName);
+    // write output file
+    std::ofstream outputFile(outputFilePath);
     if (!outputFile) {
-        std::cerr << "Failed to create file: " << outputFileName << "\n";
-        return 1;
+        Glassy::Error("Failed to write to file: " + outputFilePath.string());
     }
     outputFile << generator.GenerateAsm();
+    outputFile.close();
 
-    std::cin.get();
+    std::cout << "Output written to " << outputFilePath << "\n";
+
     return 0;
 }

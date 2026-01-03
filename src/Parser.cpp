@@ -18,7 +18,7 @@ Program* Parser::ParseProgram() {
 }
 
 Term* Parser::parseTerm() {
-    auto tok = peek();
+    auto& tok = peek();
     if (tok.type == END_OF_FILE) {
         Error(m_Tokens.back().location, "Expected term");
     }
@@ -33,7 +33,7 @@ Term* Parser::parseTerm() {
 
     if (match(L_PAREN)) {
         Expression* expr = parseExpression();
-        expect(R_PAREN, "Expected ')'");
+        expect(R_PAREN);
         TermParen* termParen = m_Allocator.alloc<TermParen>(expr);
         return m_Allocator.alloc<Term>(termParen);
     }
@@ -42,10 +42,10 @@ Term* Parser::parseTerm() {
     return nullptr; // never reached
 }
 
-Expression* Parser::parseExpression() {
+Expression* Parser::parseExpression(int minPrecedence = 0) {
     Expression* left = m_Allocator.alloc<Expression>(parseTerm());
 
-    while (auto tok = match(PLUS, MINUS, STAR, SLASH)) {
+    while (auto tok = match(PLUS, MINUS, STAR, F_SLASH)) {
         Expression* right = m_Allocator.alloc<Expression>(parseTerm());
         ExprBinary* bin = m_Allocator.alloc<ExprBinary>(tok->ToStr()[0], left, right);
         left = m_Allocator.alloc<Expression>(bin);
@@ -57,26 +57,26 @@ Expression* Parser::parseExpression() {
 Statement* Parser::parseStatement() {
     if (match(EXIT)) {
         Expression* expr = parseExpression();
-        expect(SEMI, "Expected ';'");
+        expect(SEMI);
 
         StmtExit* stmtExit = m_Allocator.alloc<StmtExit>(expr);
         return m_Allocator.alloc<Statement>(stmtExit);
     } else if (match(LET)) {
-        std::string name = *expect(IDENTIFIER, "Expected identifer").value;
+        std::string name = *expect(IDENTIFIER).value;
 
-        expect(EQUAL, "Expected '='");
+        expect(EQUAL);
         Expression* expr = parseExpression();
-        expect(SEMI, "Expected ';'");
+        expect(SEMI);
 
         StmtLet* stmtLet = m_Allocator.alloc<StmtLet>(name, expr);
         return m_Allocator.alloc<Statement>(stmtLet);
     }
 
-    std::string name = *expect(IDENTIFIER, "Expected identifier").value;
+    std::string name = *expect(IDENTIFIER).value;
 
-    expect(EQUAL, "Expected '='");
+    expect(EQUAL);
     Expression* expr = parseExpression();
-    expect(SEMI, "Expected ';");
+    expect(SEMI);
 
     StmtAssign* stmtAssign = m_Allocator.alloc<StmtAssign>(name, expr);
     return m_Allocator.alloc<Statement>(stmtAssign);
