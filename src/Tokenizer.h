@@ -9,7 +9,7 @@ enum TokenType {
     LITERAL,
 
     EXIT,
-    LET,
+    VAR,
 
     L_PAREN,
     R_PAREN,
@@ -37,8 +37,8 @@ struct SourceLocation {
     uint16_t column = 1;
 };
 
-constexpr std::string_view TokenToStr[TOKEN_TYPE_NB] = { "identifier", "literal", "exit", "let", "(", ")", "[",
-    "]", "{", "}", ";", "+", "-", "*", "/", "%", "^", "=", "eof" };
+constexpr std::string_view TokenToStr[TOKEN_TYPE_NB] = { "identifier", "literal", "exit", "var", "(", ")",
+    "[", "]", "{", "}", ";", "+", "-", "*", "/", "%", "^", "=", "eof" };
 
 constexpr std::string_view ToStr(TokenType type) {
     return TokenToStr[type];
@@ -55,14 +55,11 @@ struct Token {
     std::optional<std::string> value = std::nullopt; // literal or identifier
 };
 
-class Tokenizer {
-  public:
-    explicit Tokenizer(std::string_view src);
-    std::vector<Token> Tokenize() const;
+namespace Tokenizer {
 
-  private:
-    std::string_view m_Src;
-};
+std::vector<Token> Tokenize(std::string_view src);
+
+} // namespace Tokenizer
 
 void Error(SourceLocation loc, const std::string& msg);
 void Error(const std::string& msg);

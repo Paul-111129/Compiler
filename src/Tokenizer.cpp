@@ -3,16 +3,14 @@
 
 namespace Glassy {
 
-Tokenizer::Tokenizer(std::string_view src) : m_Src(src) {}
-
-std::vector<Token> Tokenizer::Tokenize() const {
-    const size_t size = m_Src.size();
+std::vector<Token> Tokenizer::Tokenize(std::string_view src) {
+    const size_t size = src.size();
 
     std::vector<Token> tokens;
     SourceLocation loc;
 
     for (size_t i = 0; i < size;) {
-        const char c = m_Src[i];
+        const char c = src[i];
 
         if (std::isspace(static_cast<unsigned char>(c))) {
             if (c == '\n') {
@@ -30,17 +28,17 @@ std::vector<Token> Tokenizer::Tokenize() const {
         if (std::isalpha(static_cast<unsigned char>(c)) || c == '_') {
             const size_t start = i;
 
-            while (i < size && (std::isalnum(static_cast<unsigned char>(m_Src[i])) || m_Src[i] == '_')) {
+            while (i < size && (std::isalnum(static_cast<unsigned char>(src[i])) || src[i] == '_')) {
                 ++i;
                 ++loc.column;
             }
 
-            std::string_view lex(m_Src.data() + start, i - start);
+            std::string_view lex(src.data() + start, i - start);
 
-            if (lex == "exit") {
+            if (lex == ToStr(EXIT)) {
                 tokens.emplace_back(EXIT, startLoc);
-            } else if (lex == "let") {
-                tokens.emplace_back(LET, startLoc);
+            } else if (lex == ToStr(VAR)) {
+                tokens.emplace_back(VAR, startLoc);
             } else {
                 tokens.emplace_back(IDENTIFIER, startLoc, lex);
             }
@@ -48,12 +46,12 @@ std::vector<Token> Tokenizer::Tokenize() const {
         } else if (std::isdigit(static_cast<unsigned char>(c))) {
             const size_t start = i;
 
-            while (i < size && (std::isdigit(static_cast<unsigned char>(m_Src[i])))) {
+            while (i < size && (std::isdigit(static_cast<unsigned char>(src[i])))) {
                 ++i;
                 ++loc.column;
             }
 
-            std::string_view lex(m_Src.data() + start, i - start);
+            std::string_view lex(src.data() + start, i - start);
             tokens.emplace_back(LITERAL, startLoc, lex);
             continue;
         }
@@ -73,9 +71,9 @@ std::vector<Token> Tokenizer::Tokenize() const {
             case ')': tokens.emplace_back(R_PAREN, startLoc); break;
             case ';': tokens.emplace_back(SEMI, startLoc); break;
 
-            // comment
+            // comments
             case '#':
-                while (m_Src[++i] != '\n')
+                while (src[++i] != '\n')
                     ;
                 ++loc.line;
                 break;
@@ -93,12 +91,12 @@ std::vector<Token> Tokenizer::Tokenize() const {
 }
 
 void Error(SourceLocation loc, const std::string& msg) {
-    std::cerr << std::format("{} [Ln {}, Col {}]\n", msg, loc.line, loc.column);
-    std::exit(1);
+    Error(std::format("{} [Ln {}, Col {}]\n", msg, loc.line, loc.column));
 }
 
 void Error(const std::string& msg) {
     std::cerr << msg << "\n";
+    std::cin.get();
     std::exit(1);
 }
 

@@ -25,7 +25,7 @@ void Generator::generateTerm(const Term* term) {
             if (!m_Variables.contains(termIdent->identifier)) {
                 Error("Undeclared variable '" + termIdent->identifier + "'");
             }
-            const auto& var = m_Variables[termIdent->identifier];
+            const Variable& var = m_Variables[termIdent->identifier];
             push("QWORD [rsp + " + std::to_string((m_StackSize - var.stackLocation - 1) * 8) + "]");
         },
         [&](const TermLiteral* termLiteral) {
@@ -70,12 +70,12 @@ void Generator::generateStatement(const Statement* stmt) {
             pop("rdi");
             m_Output += "syscall\n";
         },
-        [&](const StmtLet* stmtLet) {
-            if (m_Variables.contains(stmtLet->identifier)) {
-                Error("Identifier already used: " + stmtLet->identifier);
+        [&](const StmtDeclar* stmtDeclar) {
+            if (m_Variables.contains(stmtDeclar->identifier)) {
+                Error("Identifier already used: " + stmtDeclar->identifier);
             }
-            generateExpression(stmtLet->expr);
-            m_Variables.insert({ stmtLet->identifier, { m_StackSize - 1 } });
+            generateExpression(stmtDeclar->expr);
+            m_Variables.insert({ stmtDeclar->identifier, { m_StackSize - 1 } });
         },
         [&](const StmtAssign* stmtAssign) {
             if (!m_Variables.contains(stmtAssign->identifier)) {
@@ -83,12 +83,12 @@ void Generator::generateStatement(const Statement* stmt) {
             }
             generateExpression(stmtAssign->expr);
             pop("rax");
-            const auto& var = m_Variables[stmtAssign->identifier];
+            const Variable& var = m_Variables[stmtAssign->identifier];
             m_Output +=
                 "mov [rsp + " + std::to_string((m_StackSize - var.stackLocation - 1) * 8) + "], rax\n";
         }
     }, stmt->stmt);
-    // clang-format on
 }
+// clang-format on
 
 } // namespace Glassy

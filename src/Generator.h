@@ -4,7 +4,7 @@
 #include "Parser.h"
 
 namespace Glassy {
-
+   
 struct Generator {
   public:
     explicit Generator(Program* prog);

@@ -59,15 +59,15 @@ struct StmtAssign : ASTNode {
     std::string identifier;
     Expression* expr;
 };
-struct StmtLet : ASTNode {
-    StmtLet(std::string_view name, Expression* expr) : identifier(name), expr(expr) {}
+struct StmtDeclar : ASTNode {
+    StmtDeclar(std::string_view name, Expression* expr) : identifier(name), expr(expr) {}
 
     std::string identifier;
     Expression* expr;
 };
 struct Statement : ASTNode {
-    explicit Statement(std::variant<StmtExit*, StmtAssign*, StmtLet*> stmt) : stmt(stmt) {}
-    std::variant<StmtExit*, StmtAssign*, StmtLet*> stmt;
+    explicit Statement(std::variant<StmtExit*, StmtAssign*, StmtDeclar*> stmt) : stmt(stmt) {}
+    std::variant<StmtExit*, StmtAssign*, StmtDeclar*> stmt;
 };
 
 struct Program : ASTNode {

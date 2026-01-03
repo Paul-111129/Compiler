@@ -18,36 +18,44 @@ Program* Parser::ParseProgram() {
 }
 
 Term* Parser::parseTerm() {
-    auto& tok = peek();
+    const Token& tok = peek();
     if (tok.type == END_OF_FILE) {
         Error(m_Tokens.back().location, "Expected term");
     }
 
     if (auto t = match(LITERAL)) {
-        TermLiteral* termLiteral = m_Allocator.alloc<TermLiteral>(*t->value);
-        return m_Allocator.alloc<Term>(termLiteral);
+        TermLiteral* term = m_Allocator.alloc<TermLiteral>(*t->value);
+        return m_Allocator.alloc<Term>(term);
     } else if (auto t = match(IDENTIFIER)) {
-        TermIdentifier* termIdentifier = m_Allocator.alloc<TermIdentifier>(*t->value);
-        return m_Allocator.alloc<Term>(termIdentifier);
+        TermIdentifier* term = m_Allocator.alloc<TermIdentifier>(*t->value);
+        return m_Allocator.alloc<Term>(term);
     }
 
     if (match(L_PAREN)) {
         Expression* expr = parseExpression();
         expect(R_PAREN);
-        TermParen* termParen = m_Allocator.alloc<TermParen>(expr);
-        return m_Allocator.alloc<Term>(termParen);
+        TermParen* term = m_Allocator.alloc<TermParen>(expr);
+        return m_Allocator.alloc<Term>(term);
     }
 
     Error(tok.location, "Unexpected token in term");
     return nullptr; // never reached
 }
 
-Expression* Parser::parseExpression(int minPrecedence = 0) {
+Expression* Parser::parseExpression(int minPrecedence) {
     Expression* left = m_Allocator.alloc<Expression>(parseTerm());
 
-    while (auto tok = match(PLUS, MINUS, STAR, F_SLASH)) {
-        Expression* right = m_Allocator.alloc<Expression>(parseTerm());
-        ExprBinary* bin = m_Allocator.alloc<ExprBinary>(tok->ToStr()[0], left, right);
+    while (true) {
+        const Token& opTok = peek();
+
+        auto prec = GetPrecedence(opTok.type);
+        if (!prec || *prec < minPrecedence) {
+            break;
+        }
+        consume();
+
+        Expression* right = parseExpression(*prec + 1);
+        ExprBinary* bin = m_Allocator.alloc<ExprBinary>(opTok.ToStr()[0], left, right);
         left = m_Allocator.alloc<Expression>(bin);
     }
 
@@ -59,17 +67,17 @@ Statement* Parser::parseStatement() {
         Expression* expr = parseExpression();
         expect(SEMI);
 
-        StmtExit* stmtExit = m_Allocator.alloc<StmtExit>(expr);
-        return m_Allocator.alloc<Statement>(stmtExit);
-    } else if (match(LET)) {
+        StmtExit* stmt = m_Allocator.alloc<StmtExit>(expr);
+        return m_Allocator.alloc<Statement>(stmt);
+    } else if (match(VAR)) {
         std::string name = *expect(IDENTIFIER).value;
 
         expect(EQUAL);
         Expression* expr = parseExpression();
         expect(SEMI);
 
-        StmtLet* stmtLet = m_Allocator.alloc<StmtLet>(name, expr);
-        return m_Allocator.alloc<Statement>(stmtLet);
+        StmtDeclar* stmt = m_Allocator.alloc<StmtDeclar>(name, expr);
+        return m_Allocator.alloc<Statement>(stmt);
     }
 
     std::string name = *expect(IDENTIFIER).value;
@@ -78,8 +86,8 @@ Statement* Parser::parseStatement() {
     Expression* expr = parseExpression();
     expect(SEMI);
 
-    StmtAssign* stmtAssign = m_Allocator.alloc<StmtAssign>(name, expr);
-    return m_Allocator.alloc<Statement>(stmtAssign);
+    StmtAssign* stmt = m_Allocator.alloc<StmtAssign>(name, expr);
+    return m_Allocator.alloc<Statement>(stmt);
 }
 
 } // namespace Glassy

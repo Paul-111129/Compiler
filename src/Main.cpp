@@ -4,16 +4,19 @@
 #include "Tokenizer.h"
 
 int main(int argc, char** argv) {
-    if (argc != 2) {
-        Glassy::Error("Usage: <program> <source_file>.glassy");
-    }
+    // if (argc != 2) {
+    //     Glassy::Error("Usage: <program> <source_file>.glassy");
+    // }
 
-    std::filesystem::path inputFilePath = argv[1];
+    std::filesystem::path inputFilePath /*= argv[1]*/;
 
-    if (inputFilePath.extension() != ".glassy") {
-        Glassy::Error(inputFilePath.string() + " is not a Glassy source file");
-    }
-    if (!inputFilePath.has_extension()) {
+    inputFilePath = "test"; // for debug
+
+    if (inputFilePath.has_extension()) {
+        if (inputFilePath.extension() != ".glassy") {
+            Glassy::Error(inputFilePath.string() + " is not a Glassy source file");
+        }
+    } else {
         inputFilePath.replace_extension(".glassy");
     }
 
@@ -30,8 +33,7 @@ int main(int argc, char** argv) {
     inputFile.close();
 
     // tokenize, parse, and generate assembly
-    Glassy::Tokenizer tokenizer(sourceCode);
-    Glassy::Parser parser(tokenizer.Tokenize());
+    Glassy::Parser parser(Glassy::Tokenizer::Tokenize(sourceCode));
     Glassy::Generator generator(parser.ParseProgram());
 
     // write output file
@@ -44,5 +46,6 @@ int main(int argc, char** argv) {
 
     std::cout << "Output written to " << outputFilePath << "\n";
 
+    std::cin.get();
     return 0;
 }
