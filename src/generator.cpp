@@ -78,24 +78,35 @@ void Generator::GeneratePrimary(const Primary* primary) {
         primary->Value);
 }
 
+void Generator::GeneratePostfixExpression(const PostfixExpression* expr) {
+    GeneratePrimary(expr->Prim);
+}
+
 void Generator::GenerateMultiplicativeExpression(const MultiplicativeExpression* expr) {
-    GeneratePrimary(expr->Left);
+    GeneratePostfixExpression(expr->Left);
     for (const auto& [op, right] : expr->Right) {
-        GeneratePrimary(right);
+        GeneratePostfixExpression(right);
         Pop("rax");
         Pop("rbx");
 
         if (op == "*") {
             m_Output += "imul rax, rbx\n";
+            Push("rax");
         } else if (op == "/") {
             m_Output += "mov rcx, rax\n";
-            m_Output += "mov rax, rbx \n";
+            m_Output += "mov rax, rbx\n";
             m_Output += "xor rdx, rdx\n";
             m_Output += "div rcx\n";
+            Push("rax");
+        } else if (op == "%") {
+            m_Output += "mov rcx, rax\n";
+            m_Output += "mov rax, rbx\n";
+            m_Output += "xor rdx, rdx\n";
+            m_Output += "div rcx\n";
+            Push("rdx");
         } else {
             Error(std::format("Unknow operator '{}'", op));
         }
-        Push("rax");
     }
 }
 
@@ -163,7 +174,22 @@ void Generator::GenerateEqualityExpression(const EqualityExpression* expr) {
 }
 
 void Generator::GenerateExpression(const Expression* expr) {
-    GenerateEqualityExpression(expr->Expr);
+    if (expr->Expr->Ident) { // assignment
+        const Variable* v = LookupVar(*expr->Expr->Ident);
+        if (!v) {
+            Error("Undeclared identifier: " + *expr->Expr->Ident);
+        }
+
+        GenerateEqualityExpression(expr->Expr->Expr);
+        Pop("rax");
+
+        m_Output += "mov [rsp + " + std::to_string((m_StackSize - v->StackLocation - 1) * 8) + "], rax\n";
+
+        DebugPrint("rax");
+    } else {
+        GenerateEqualityExpression(expr->Expr->Expr);
+        Pop("rax");
+    }
 }
 
 void Generator::GenerateBlock(const Block* scope) {
@@ -188,19 +214,7 @@ void Generator::GenerateBlock(const Block* scope) {
 }
 
 void Generator::GenerateStatement(const Statement* stmt) {
-    std::visit(overloaded{ [&](const AssignmentStatement* assignStmt) {
-                              const Variable* v = LookupVar(assignStmt->Ident);
-
-                              if (!v) {
-                                  Error("Undeclared identifier: " + assignStmt->Ident);
-                              }
-                              GenerateExpression(assignStmt->Expr);
-                              Pop("rax");
-                              m_Output += "mov [rsp + " +
-                                  std::to_string((m_StackSize - v->StackLocation - 1) * 8) + "], rax\n";
-
-                              DebugPrint("rax");
-                          },
+    std::visit(overloaded{ [&](const ExpressionStatement* exprStmt) { GenerateExpression(exprStmt->Expr); },
                    [&](const IfStatement* ifStmt) {
                        GenerateExpression(ifStmt->Cond);
                        Pop("rax");

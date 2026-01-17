@@ -36,6 +36,7 @@ struct Generator {
     void DebugPrint(const std::string& reg);
 
     void GeneratePrimary(const Primary* primary);
+    void GeneratePostfixExpression(const PostfixExpression* expr);
     void GenerateMultiplicativeExpression(const MultiplicativeExpression* expr);
     void GenerateAdditiveExpression(const AdditiveExpression* expr);
     void GenerateRelationalExpression(const RelationalExpression* expr);

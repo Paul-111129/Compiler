@@ -29,12 +29,34 @@ Primary* Parser::ParsePrimary() {
     return nullptr; // never reached
 }
 
-MultiplicativeExpression* Parser::ParseMultiplicativeExpression() {
-    MultiplicativeExpression* expr = m_Allocator.alloc<MultiplicativeExpression>(ParsePrimary());
+PostfixExpression* Parser::ParsePostfixExpression() {
+    PostfixExpression* expr = m_Allocator.alloc<PostfixExpression>(ParsePrimary());
 
-    while (Match(STAR, FSLASH)) {
+    while (Match(LPAREN)) { // function call
+        Consume();
+        std::vector<AssignmentExpression*> argList;
+
+        if (!Match(RPAREN)) {
+            argList.emplace_back(ParseAssignmentExpression());
+            while (Match(COMMA)) {
+                Consume();
+                argList.emplace_back(ParseAssignmentExpression());
+            }
+        }
+
+        Expect(RPAREN);
+        expr->CallList.emplace_back(argList);
+    }
+
+    return expr;
+}
+
+MultiplicativeExpression* Parser::ParseMultiplicativeExpression() {
+    MultiplicativeExpression* expr = m_Allocator.alloc<MultiplicativeExpression>(ParsePostfixExpression());
+
+    while (Match(STAR, FSLASH, PERCENT)) {
         auto t = Consume();
-        Primary* right = ParsePrimary();
+        PostfixExpression* right = ParsePostfixExpression();
         expr->Right.emplace_back(TokenToStr(t.Type), right);
     }
 
@@ -80,20 +102,26 @@ EqualityExpression* Parser::ParseEqualityExpression() {
     return expr;
 }
 
+AssignmentExpression* Parser::ParseAssignmentExpression() {
+    AssignmentExpression* expr;
+
+    if (Match(IDENTIFIER) && m_Tokens[m_Index + 1].Type == EQUAL) {
+        std::string_view name = *Consume().Value;
+        Consume(); // '='
+        expr = m_Allocator.alloc<AssignmentExpression>(name, ParseEqualityExpression());
+    } else {
+        expr = m_Allocator.alloc<AssignmentExpression>(ParseEqualityExpression());
+    }
+
+    return expr;
+}
+
 Expression* Parser::ParseExpression() {
-    return m_Allocator.alloc<Expression>(ParseEqualityExpression());
+    return m_Allocator.alloc<Expression>(ParseAssignmentExpression());
 }
 
 Statement* Parser::ParseStatement() {
-    if (Match(IDENTIFIER)) {
-        std::string_view name = *Consume().Value;
-        Expect(EQUAL);
-        Expression* expr = ParseExpression();
-        Expect(SEMICOLON);
-
-        AssignmentStatement* stmt = m_Allocator.alloc<AssignmentStatement>(name, expr);
-        return m_Allocator.alloc<Statement>(stmt);
-    } else if (Match(IF)) {
+    if (Match(IF)) {
         Consume();
         Expect(LPAREN);
         Expression* expr = ParseExpression();
@@ -112,17 +140,16 @@ Statement* Parser::ParseStatement() {
         Expect(RPAREN);
 
         WhileStatement* stmt = m_Allocator.alloc<WhileStatement>(expr, ParseStatement());
-        if (Match(ELSE)) {
-            Consume();
-            stmt->Loop = ParseStatement();
-        }
         return m_Allocator.alloc<Statement>(stmt);
     } else if (Match(LBRACE)) {
         return m_Allocator.alloc<Statement>(ParseBlock());
     }
 
-    Error("Expected statement");
-    return nullptr;
+    Expression* expr = ParseExpression();
+    Expect(SEMICOLON);
+
+    ExpressionStatement* stmt = m_Allocator.alloc<ExpressionStatement>(expr);
+    return m_Allocator.alloc<Statement>(stmt);
 }
 
 Block* Parser::ParseBlock() {

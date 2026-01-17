@@ -1,10 +1,12 @@
 #pragma once
 
 #include "lexer.h"
+#include <optional>
 #include <variant>
 
 namespace Compiler {
 
+struct AssignmentExpression;
 struct Expression;
 struct Statement;
 struct Block;
@@ -16,10 +18,16 @@ struct Primary {
     std::variant<Expression*, std::string, int> Value;
 };
 
+struct PostfixExpression {
+    explicit PostfixExpression(Primary* p) : Prim(p) {}
+    Primary* Prim;
+    std::vector<std::vector<AssignmentExpression*>> CallList;
+};
+
 struct MultiplicativeExpression { // '*' | '/'
-    explicit MultiplicativeExpression(Primary* p) : Left(p) {}
-    Primary* Left;
-    std::vector<std::pair<std::string, Primary*>> Right;
+    explicit MultiplicativeExpression(PostfixExpression* p) : Left(p) {}
+    PostfixExpression* Left;
+    std::vector<std::pair<std::string, PostfixExpression*>> Right;
 };
 
 struct AdditiveExpression { // '+' | '-'
@@ -40,9 +48,16 @@ struct EqualityExpression { // '==' | '!='
     std::vector<std::pair<std::string, RelationalExpression*>> Right;
 };
 
-struct Expression {
-    explicit Expression(EqualityExpression* e) : Expr(e) {}
+struct AssignmentExpression { // '='
+    AssignmentExpression(EqualityExpression* e) : Expr(e) {}
+    AssignmentExpression(std::string_view name, EqualityExpression* e) : Ident(name), Expr(e) {}
+    std::optional<std::string> Ident = std::nullopt;
     EqualityExpression* Expr;
+};
+
+struct Expression {
+    explicit Expression(AssignmentExpression* e) : Expr(e) {}
+    AssignmentExpression* Expr;
 };
 
 struct Declaration {
@@ -50,9 +65,8 @@ struct Declaration {
     std::string Ident;
 };
 
-struct AssignmentStatement {
-    AssignmentStatement(std::string_view name, Expression* expr) : Ident(name), Expr(expr) {}
-    std::string Ident;
+struct ExpressionStatement {
+    explicit ExpressionStatement(Expression* e) : Expr(e) {}
     Expression* Expr;
 };
 
@@ -71,11 +85,11 @@ struct WhileStatement {
 };
 
 struct Statement {
-    explicit Statement(AssignmentStatement* a) : Stmt(a) {}
+    explicit Statement(ExpressionStatement* e) : Stmt(e) {}
     explicit Statement(IfStatement* i) : Stmt(i) {}
     explicit Statement(WhileStatement* w) : Stmt(w) {}
     explicit Statement(Block* b) : Stmt(b) {}
-    std::variant<AssignmentStatement*, IfStatement*, WhileStatement*, Block*> Stmt;
+    std::variant<ExpressionStatement*, IfStatement*, WhileStatement*, Block*> Stmt;
 };
 
 struct BlockItem {
